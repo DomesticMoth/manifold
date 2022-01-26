@@ -21,6 +21,17 @@ import (
 
 type Id = uint64
 
+type IdSlice []Id
+
+func (list IdSlice) Has(a Id) bool {
+    for _, b := range list {
+        if b == a {
+            return true
+        }
+    }
+    return false
+}
+
 func NewID() (Id, error) {
     val, err := rand.Int(rand.Reader, big.NewInt(int64(math.MaxInt64)))
     if err != nil {

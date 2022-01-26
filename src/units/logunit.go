@@ -11,49 +11,31 @@
     You should have received a copy of the GNU General Public License
     along with manifold.  If not, see <https://www.gnu.org/licenses/>.
 */
-package events
+package units
 
 import (
-	"encoding/json"
-	Id "github.com/DomesticMoth/manifold/src/id"
+    log "github.com/sirupsen/logrus"
 )
 
-type EventChan chan Event
 
-type Image struct{
-	Url string
+type LogUnit struct{
+    context UnitContext
 }
 
-type Event struct {
-	Tags []string
-	Msgevent *MsgEvent
-	Deletemsgevent *DeleteMsgEvent
-	Userevent *UserEvent
+func (l *LogUnit) Init(context UnitContext) error {
+    l.context = context
+    return nil
 }
 
-func (e *Event) ToString() (string, error) {
-	ret, err := json.Marshal(*e)
-	return string(ret), err
+func (l *LogUnit) Run() error {
+    defer l.context.Close()
+    for {
+        event, err := l.context.GetEvent()
+        if err != nil {
+            return err
+        }
+        log.Info("Event: ", event.ToString())
+    }
 }
 
-type MsgEvent struct {
-	MsgId Id.Id
-	AuthorId Id.Id
-	AuthorName string
-	CreateTime int64
-	RedactTime int64
-	Text string
-	Images []Image
-	Messages []MsgEvent
-}
-
-type DeleteMsgEvent struct {
-	MsgId Id.Id
-}
-
-type UserEvent struct {
-	ExecutorId Id.Id
-	ExecutorName string
-	TargetId Id.Id
-	TargetName string
-}
+func (l *LogUnit) Stop() error { return nil }
