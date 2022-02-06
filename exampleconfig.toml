@@ -1,0 +1,22 @@
+#LogLevel = "Debug"
+#Db = "manifold.db"
+
+#[[ Unit ]]
+#    Name = "Logger"
+#    [ Unit.Log ]
+
+#[[ Unit ]]
+#    Name = "Vk"
+#    [ Unit.Vk ]
+#        Token = "<VK BOT TOKEN>"
+#        PeerId = <CHAT ID>
+
+#[[ Unit ]]
+#    Name = "Tg"
+#    [ Unit.Tg ]
+#        Token = "<VK BOT TOKEN>"
+#        ChatId = <CHAT ID>
+
+#[[ Unit ]]
+#    Name = "Ping"
+#    [ Unit.Ping ]

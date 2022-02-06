@@ -15,8 +15,10 @@ package units
 
 import (
 	"database/sql"
+	"context"
 	"github.com/DomesticMoth/manifold/src/id"
 	"github.com/DomesticMoth/manifold/src/events"
+	"golang.org/x/sync/errgroup"
 )
 
 type StrSlice []string
@@ -30,21 +32,85 @@ func (list StrSlice) Has(a string) bool {
     return false
 }
 
+type UnitContextBuilder struct{
+	dblock chan *sql.DB
+	eventsChanSize int
+	contexts []*UnitContext
+}
+
+func NewUnitContextBuilder(db *sql.DB, eventsChanSize int) UnitContextBuilder{
+	dblock := make(chan *sql.DB, 1)
+	dblock <- db
+	return UnitContextBuilder{
+		dblock,
+		eventsChanSize,
+		[]*UnitContext{},
+	}
+}
+
+func (b *UnitContextBuilder) Build(Name string, BlockListInternal, BlockListExternal []id.Id) *UnitContext{
+	context := NewUnitContext(
+								Name,
+								BlockListInternal,
+								BlockListExternal,
+								b.dblock,
+								b.eventsChanSize,
+	)
+	for _, ctx := range b.contexts {
+		context.Bind(ctx)
+		ctx.Bind(&context)
+	}
+	ret := &context
+	b.contexts = append(b.contexts, ret)
+	return ret
+}
+
 type UnitContext struct{
 	name string
-	dblock chan sql.DB
+	dblock chan *sql.DB
 	db *sql.DB
-	ev events.EventChan
+	incomingRaw events.EventChan
+	incoming events.EventChan
+	outgoingRaw events.EventChan
+	outgoing []events.EventChan
+	outgoingNames []string
 	userIdDoNotGet []id.Id
 	userIdDoNotSend []id.Id
 }
 
-func (c *UnitContext) GetEvent() (events.Event, error) {
+func NewUnitContext(name string, 
+					userIdDoNotGet []id.Id, 
+					userIdDoNotSend []id.Id, 
+					dblock chan *sql.DB,
+					EventsChanSize int) UnitContext{
+	incomingRaw := make(events.EventChan, EventsChanSize)
+	incoming := make(events.EventChan)
+	outgoingRaw := make(events.EventChan)
+	return UnitContext{
+		name,
+		dblock,
+		nil,
+		incomingRaw,
+		incoming,
+		outgoingRaw,
+		[]events.EventChan{},
+		[]string{},
+		userIdDoNotGet,
+		userIdDoNotSend,
+	}
+}
+
+func (c *UnitContext) Bind(other *UnitContext) {
+	name := other.GetName()
+	if StrSlice(c.outgoingNames).Has(name) {return}
+	c.outgoingNames = append(c.outgoingNames, name)
+	c.outgoing = append(c.outgoing, other.incomingRaw)
+}
+
+func (c *UnitContext) filterInc() {
 	for {
-		// TODO Check context
-		// TODO Check chan valid
-		event := <- c.ev
-		if !StrSlice(event.Tags).Has("<<ALL>>") {
+		event := <- c.incomingRaw
+		if !StrSlice(event.Tags).Has(events.ALLTAG) {
 			if !StrSlice(event.Tags).Has(c.name) { continue }
 		}
 		if event.Msgevent != nil {
@@ -55,38 +121,52 @@ func (c *UnitContext) GetEvent() (events.Event, error) {
 		if event.Msgevent == nil && event.Deletemsgevent == nil && event.Userevent == nil {
 			continue
 		}
-		return event, nil
+		c.incoming <- event
 	}
 }
 
-func (c *UnitContext) SendEvent(event events.Event) error {
-	// TODO Check context
-	// TODO Check chan valid
-	if event.Msgevent != nil {
-		if id.IdSlice(c.userIdDoNotSend).Has(event.Msgevent.AuthorId) {
-			event.Msgevent = nil
+func (c *UnitContext) filterOut() {
+	for {
+		event := <- c.outgoingRaw
+		if event.Msgevent != nil {
+			if id.IdSlice(c.userIdDoNotSend).Has(event.Msgevent.AuthorId) {
+				event.Msgevent = nil
+			}
+		}
+		if event.Msgevent == nil && event.Deletemsgevent == nil && event.Userevent == nil {
+			continue
+		}
+		for _, ev := range c.outgoing {
+			ev <- event
 		}
 	}
-	if event.Msgevent == nil && event.Deletemsgevent == nil && event.Userevent == nil {
-		return nil
-	}
-	c.ev <- event
-	return nil
 }
 
-func (c *UnitContext) GetDb() (*sql.DB, error) {
-	// TODO Check context
-	// TODO Check chan valid
+func (c *UnitContext) Run() {
+	go c.filterOut()
+	c.filterInc()
+	return
+}
+
+func (c *UnitContext) Sender() events.EventChan {
+	return c.outgoingRaw
+}
+
+func (c *UnitContext) Receiver() events.EventChan {
+	return c.incoming
+}
+
+func (c *UnitContext) GetDb() *sql.DB {
 	db := <- c.dblock
-	c.db = &db
-	return &db, nil
+	c.db = db
+	return db
 }
 
-func (c *UnitContext) RetDb() error {
+func (c *UnitContext) RetDb() {
 	if c.db != nil {
-		c.dblock <- *c.db
+		c.dblock <- c.db
 	}
-	return nil
+	c.db = nil
 }
 
 func (c *UnitContext) GetName() string {
@@ -98,7 +178,7 @@ func (c *UnitContext) Close() {
 }
 
 type Unit interface{
-	Init(context UnitContext) error
-	Run() error
+	Init(context *UnitContext) error
+	Run(group *errgroup.Group, ctx context.Context) error
 	Stop() error
 }

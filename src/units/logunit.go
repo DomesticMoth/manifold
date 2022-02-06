@@ -14,27 +14,40 @@
 package units
 
 import (
+	"context"
     log "github.com/sirupsen/logrus"
+    "golang.org/x/sync/errgroup"
 )
 
 
+type LogUnitConfig struct{}
+
 type LogUnit struct{
-    context UnitContext
+    context *UnitContext
+    LogLevel string
 }
 
-func (l *LogUnit) Init(context UnitContext) error {
+func NewLogUnit(config LogUnitConfig) LogUnit {
+	return LogUnit{}
+}
+
+func (l *LogUnit) Init(context *UnitContext) error {
     l.context = context
     return nil
 }
 
-func (l *LogUnit) Run() error {
+func (l *LogUnit) Run(group *errgroup.Group, ctx context.Context) error {
     defer l.context.Close()
     for {
-        event, err := l.context.GetEvent()
-        if err != nil {
-            return err
-        }
-        log.Info("Event: ", event.ToString())
+    	select {
+    		case <- ctx.Done():
+    			log.Debug(l.context.GetName(), " Stopping")
+    			return nil
+    		case event := <- l.context.Receiver():
+		        s, err := event.ToString()
+		        if err != nil { return err }
+		        log.Info("Event: ", s)
+    	}
     }
 }
 

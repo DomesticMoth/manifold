@@ -18,6 +18,8 @@ import (
 	Id "github.com/DomesticMoth/manifold/src/id"
 )
 
+const ALLTAG string = "<<ALL>>"
+
 type EventChan chan Event
 
 type Image struct{
