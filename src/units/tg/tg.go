@@ -24,6 +24,11 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+type IdComparisonInc struct{
+	Tg int64
+	Local id.Id
+}
+
 type Puppet = tele.Bot
 
 type ComparisonOutg struct{
@@ -38,6 +43,7 @@ type PuppetConfig struct {
 type TgUnitConfig struct {
 	Token string
 	ChatId int64
+	UsersInc []IdComparisonInc
 	Puppet []PuppetConfig
 	UsersOutg []ComparisonOutg
 }
@@ -50,16 +56,23 @@ type TgUnit struct {
 	incoming chan tele.Context
 	puppets []Puppet
 	comparisonOutg map[id.Id]*Puppet
+	usersIncoming map[int64]id.Id
 }
 
 func NewTgUnit(config TgUnitConfig) TgUnit{
 	incoming := make(chan tele.Context)
 	comparisonOutg := make(map[id.Id]*Puppet)
-	return TgUnit{ config, nil, nil, nil, incoming, []Puppet{}, comparisonOutg }
+	usersIncoming := make(map[int64]id.Id)
+	return TgUnit{ config, nil, nil, nil, incoming, []Puppet{}, comparisonOutg, usersIncoming }
 }
 
 func (t *TgUnit) Init(ucontext *units.UnitContext) error {
 	t.ucontext = ucontext
+
+	for _, pair := range t.config.UsersInc {
+		t.usersIncoming[pair.Tg]=pair.Local
+	}
+	
 	pref := tele.Settings{
 		Token:  t.config.Token,
 		Poller: &tele.LongPoller{Timeout: 10 * time.Second},
@@ -125,17 +138,27 @@ func (t *TgUnit) Header(msg events.MsgEvent) string {
 	return "< BY '"+msg.AuthorName+"' >\n"
 }
 
+func (t *TgUnit) GetIncId(tgid int64) (id.Id, error) {
+	if id, ok := t.usersIncoming[tgid]; ok {
+	    return id, nil
+	}
+	return id.NewID()
+}
+
 func (t *TgUnit) Run(group *errgroup.Group, ctx context.Context) error {
 	go t.bot.Start()
+	_, err := t.bot.Send(t.chat, "Bridge is turned on")
+	if err != nil { log.Error(err) }
 	for {
 		select{
 			case <- ctx.Done():
 				log.Debug(t.ucontext.GetName(), " Stopping")
+				t.bot.Send(t.chat, "Bridge is turned off")
 				return nil
 			case inc := <- t.incoming:
 				msgid, err := id.NewID()
 				if err != nil { return err }
-				authorid, err := id.NewID()
+				authorid, err := t.GetIncId(inc.Sender().ID)
 				if err != nil { return err }
 				name := GetUserName(*inc.Sender())
 				date := time.Now().Unix()

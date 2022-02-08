@@ -15,6 +15,7 @@ package vk
 
 import (
 	"context"
+	"errors"
 	"github.com/DomesticMoth/manifold/src/id"
 	"github.com/DomesticMoth/manifold/src/events"
 	"github.com/DomesticMoth/manifold/src/units"
@@ -26,15 +27,32 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
+type Puppet struct{
+	Vk api.VK
+	PeerId int
+}
+
+type PuppetConfig struct{
+	Token string
+	PeerId int
+}
+
 type IdComparisonInc struct{
 	Vk int
 	Local id.Id
+}
+
+type ComparisonOutg struct{
+	Local id.Id
+	Puppet int
 }
 
 type VkUnitConfig struct{
 	Token string
 	PeerId int
 	UsersInc []IdComparisonInc
+	UsersOutg []ComparisonOutg
+	Puppet []PuppetConfig
 }
 
 type VkUnit struct{
@@ -45,10 +63,14 @@ type VkUnit struct{
 	lp **longpoll.LongPoll
 	incoming chan vkevents.MessageNewObject
 	usersIncoming map[int]id.Id
+	puppets []Puppet
+	comparisonOutg map[id.Id]*Puppet
 }
 
 func NewVkUnit(config VkUnitConfig) VkUnit{
 	usersIncoming := make(map[int]id.Id)
+	comparisonOutg := make(map[id.Id]*Puppet)
+	puppets := []Puppet{}
 	for _, v := range config.UsersInc {
 		usersIncoming[v.Vk] = v.Local
 	}
@@ -60,6 +82,8 @@ func NewVkUnit(config VkUnitConfig) VkUnit{
 		nil,
 		make(chan vkevents.MessageNewObject),
 		usersIncoming,
+		puppets,
+		comparisonOutg,
 	}
 }
 
@@ -79,6 +103,18 @@ func (v *VkUnit) Init(ucontxt *units.UnitContext) error {
 	group, err := v.vk.GroupsGetByID(nil)
 	if err != nil { return err }
 	v.group = &group
+
+	for _, p := range v.config.Puppet{
+		puppet := Puppet{
+			*api.NewVK(p.Token),
+			p.PeerId,
+		}
+		v.puppets = append(v.puppets, puppet)
+	}
+	for _, u := range v.config.UsersOutg{
+		v.comparisonOutg[u.Local] = &v.puppets[u.Puppet]
+	}
+	
 	lp, err := longpoll.NewLongPoll(v.vk, group[0].ID)
 	if err != nil { return err }
 	v.lp = &lp
@@ -99,6 +135,9 @@ func (v *VkUnit) getName(ID int) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	if len(users) < 1 {
+		return "", errors.New("B0t")
+	}
 	ret := ""
 	ret += users[0].FirstName
 	if ret != "" { ret += " "}
@@ -117,12 +156,44 @@ func (v *VkUnit) GetIncId(vkid int) (id.Id, error) {
 	return id.NewID()
 }
 
+func (v *VkUnit) GetApi(local id.Id) *api.VK {
+	if cmp, ok := v.comparisonOutg[local]; ok {
+	    return &cmp.Vk
+	}
+	return v.vk
+}
+
+func (v *VkUnit) GetPeerId(local id.Id) int {
+	if cmp, ok := v.comparisonOutg[local]; ok {
+	    return cmp.PeerId
+	}
+	return v.config.PeerId
+}
+
+func (v *VkUnit) GetHeader(msg events.MsgEvent) string{
+	if _, ok := v.comparisonOutg[msg.AuthorId]; ok {
+		return ""
+	}
+	return "< BY '"+msg.AuthorName+"' >\n"
+}
+
 func (v *VkUnit) Run(group *errgroup.Group, ctx context.Context) error {
 	go (*v.lp).Run()
+	b := params.NewMessagesSendBuilder()
+	b.Message("Bridge is turned on")
+	b.RandomID(0)
+	b.PeerID(v.config.PeerId)
+	_, err := v.vk.MessagesSend(b.Params)
+	if err != nil { log.Error(err) }
 	for {
 		select {
 			case <- ctx.Done():
 				log.Debug(v.ucontxt.GetName(), " Stopping")
+				b := params.NewMessagesSendBuilder()
+				b.Message("Bridge is turned off")
+				b.RandomID(0)
+				b.PeerID(v.config.PeerId)
+				v.vk.MessagesSend(b.Params)
 				return nil
 			case msg := <- v.incoming:
 				msgid, err := id.NewID()
@@ -130,7 +201,7 @@ func (v *VkUnit) Run(group *errgroup.Group, ctx context.Context) error {
 				authorid, err := v.GetIncId(msg.Message.FromID)
 				if err != nil { return err }
 				name, err := v.getName(msg.Message.FromID)
-				if err != nil { return err }
+				if err != nil { continue }
 				msgevent := events.MsgEvent{
 					MsgId: msgid,
 					AuthorId: authorid,
@@ -151,12 +222,12 @@ func (v *VkUnit) Run(group *errgroup.Group, ctx context.Context) error {
 			case event := <- v.ucontxt.Receiver():
 				if event.Msgevent == nil { continue }
 				b := params.NewMessagesSendBuilder()
-				text := "< BY '"+event.Msgevent.AuthorName+"' >\n"+event.Msgevent.Text
+				text := v.GetHeader(*event.Msgevent)+event.Msgevent.Text
 				b.Message(text)
 				b.RandomID(0)
-				b.PeerID(v.config.PeerId)
-				_, err := v.vk.MessagesSend(b.Params)
-				if err != nil { return err }
+				b.PeerID(v.GetPeerId(event.Msgevent.AuthorId))
+				_, err := v.GetApi(event.Msgevent.AuthorId).MessagesSend(b.Params)
+				if err != nil { log.Error(err) }
 		}
 	}
 }
