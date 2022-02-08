@@ -26,9 +26,15 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
+type IdComparisonInc struct{
+	Vk int
+	Local id.Id
+}
+
 type VkUnitConfig struct{
 	Token string
 	PeerId int
+	UsersInc []IdComparisonInc
 }
 
 type VkUnit struct{
@@ -38,9 +44,14 @@ type VkUnit struct{
 	group *api.GroupsGetByIDResponse
 	lp **longpoll.LongPoll
 	incoming chan vkevents.MessageNewObject
+	usersIncoming map[int]id.Id
 }
 
 func NewVkUnit(config VkUnitConfig) VkUnit{
+	usersIncoming := make(map[int]id.Id)
+	for _, v := range config.UsersInc {
+		usersIncoming[v.Vk] = v.Local
+	}
 	return VkUnit{
 		config,
 		nil,
@@ -48,6 +59,7 @@ func NewVkUnit(config VkUnitConfig) VkUnit{
 		nil,
 		nil,
 		make(chan vkevents.MessageNewObject),
+		usersIncoming,
 	}
 }
 
@@ -98,6 +110,13 @@ func (v *VkUnit) getName(ID int) (string, error) {
 	return ret, nil
 }
 
+func (v *VkUnit) GetIncId(vkid int) (id.Id, error) {
+	if id, ok := v.usersIncoming[vkid]; ok {
+	    return id, nil
+	}
+	return id.NewID()
+}
+
 func (v *VkUnit) Run(group *errgroup.Group, ctx context.Context) error {
 	go (*v.lp).Run()
 	for {
@@ -108,7 +127,7 @@ func (v *VkUnit) Run(group *errgroup.Group, ctx context.Context) error {
 			case msg := <- v.incoming:
 				msgid, err := id.NewID()
 				if err != nil { return err }
-				authorid, err := id.NewID()
+				authorid, err := v.GetIncId(msg.Message.FromID)
 				if err != nil { return err }
 				name, err := v.getName(msg.Message.FromID)
 				if err != nil { return err }
@@ -140,10 +159,10 @@ func (v *VkUnit) Run(group *errgroup.Group, ctx context.Context) error {
 				if err != nil { return err }
 		}
 	}
-	return nil
 }
 
 func (v *VkUnit) Stop() error {
+	(*v.lp).Shutdown()
 	v.ucontxt.Close()
 	return nil
 }

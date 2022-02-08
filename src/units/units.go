@@ -132,6 +132,9 @@ func (c *UnitContext) filterOut() {
 			if id.IdSlice(c.userIdDoNotSend).Has(event.Msgevent.AuthorId) {
 				event.Msgevent = nil
 			}
+			if event.Msgevent.Text == "" {
+				event.Msgevent = nil
+			}
 		}
 		if event.Msgevent == nil && event.Deletemsgevent == nil && event.Userevent == nil {
 			continue

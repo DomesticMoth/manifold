@@ -24,9 +24,22 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+type Puppet = tele.Bot
+
+type ComparisonOutg struct{
+	Local id.Id
+	Puppet int
+}
+
+type PuppetConfig struct {
+	Token string
+}
+
 type TgUnitConfig struct {
 	Token string
 	ChatId int64
+	Puppet []PuppetConfig
+	UsersOutg []ComparisonOutg
 }
 
 type TgUnit struct {
@@ -35,11 +48,14 @@ type TgUnit struct {
 	bot *tele.Bot
 	chat *tele.Chat
 	incoming chan tele.Context
+	puppets []Puppet
+	comparisonOutg map[id.Id]*Puppet
 }
 
 func NewTgUnit(config TgUnitConfig) TgUnit{
 	incoming := make(chan tele.Context)
-	return TgUnit{ config, nil, nil, nil, incoming }
+	comparisonOutg := make(map[id.Id]*Puppet)
+	return TgUnit{ config, nil, nil, nil, incoming, []Puppet{}, comparisonOutg }
 }
 
 func (t *TgUnit) Init(ucontext *units.UnitContext) error {
@@ -56,6 +72,20 @@ func (t *TgUnit) Init(ucontext *units.UnitContext) error {
 	chat, err:= t.bot.ChatByID(t.config.ChatId)
 	if err != nil { return err }
 	t.chat = chat
+
+	for _, pc := range t.config.Puppet{
+		pref := tele.Settings{
+			Token:  pc.Token,
+			Poller: &tele.LongPoller{Timeout: 10 * time.Second},
+		}
+		puppet, err := tele.NewBot(pref)
+		if err != nil { return err }
+		t.puppets = append(t.puppets, *puppet)
+	}
+
+	for _, cmp := range t.config.UsersOutg {
+		t.comparisonOutg[cmp.Local] = &t.puppets[cmp.Puppet]
+	}
 
 	t.bot.Handle(tele.OnText, func(c tele.Context) error {
 		if c.Chat().ID == t.config.ChatId {
@@ -81,9 +111,22 @@ func GetUserName(user tele.User) string {
 	return ret
 }
 
+func (t *TgUnit) Bot(local id.Id) *tele.Bot {
+	if bot, ok := t.comparisonOutg[local]; ok {
+	    return bot
+	}
+	return t.bot
+}
+
+func (t *TgUnit) Header(msg events.MsgEvent) string {
+	if _, ok := t.comparisonOutg[msg.AuthorId]; ok {
+	    return ""
+	}
+	return "< BY '"+msg.AuthorName+"' >\n"
+}
+
 func (t *TgUnit) Run(group *errgroup.Group, ctx context.Context) error {
 	go t.bot.Start()
-	// c.Send(c.Text())
 	for {
 		select{
 			case <- ctx.Done():
@@ -115,8 +158,8 @@ func (t *TgUnit) Run(group *errgroup.Group, ctx context.Context) error {
 				t.ucontext.Sender() <- event
 			case event := <- t.ucontext.Receiver():
 				if event.Msgevent == nil { continue }
-				text := "< BY '"+event.Msgevent.AuthorName+"' >\n"+event.Msgevent.Text
-				_, err := t.bot.Send(t.chat, text)
+				text := t.Header(*event.Msgevent)+event.Msgevent.Text
+				_, err := t.Bot(event.Msgevent.AuthorId).Send(t.chat, text)
 				if err != nil { log.Error(err) }
 		}
 	}
