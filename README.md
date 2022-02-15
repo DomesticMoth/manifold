@@ -32,7 +32,7 @@ $ make build
 ```
 There are several ways to connect a chat to the Manifold.
 ## One bot
-The easiest way is to place one bot connected to the Manifold in each chat, through which all messages from other chats will be forwarded.  
+The easiest way is to place one bot connected to the  in each chat, through which all messages from other chats will be forwarded.  
 ```
 +-------------+
 |Chat 1       |
@@ -83,3 +83,11 @@ On the other hand, you can set up an individual puppet bot in one chat for each 
 +------------+ +------------+
 ```
 
+# Reasons
+One of the problems of large (as well as small) Internet communities is the choice of the platform on which members of this community gather.  
+Different users prefer different platforms for convenience or security reasons.   
+Also, many users are often dissatisfied with the need to have separate clients for some platform just for the sake of a single community.  
+  
+To solve this problem, two tools have already been created, each with its own strengths and weaknesses. This is a [universal client "pidgin"](https://www.pidgin.im/) and [matrix protocol](https://matrix.org/).  
+Each of them has to make some compromises.  
+Manifold is another tool offering an alternative solution to the problem.  
