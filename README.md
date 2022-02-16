@@ -68,6 +68,7 @@ But in this case, messages from all users will be forwarded through one account 
 On the other hand, you can set up an individual puppet bot in one chat for each user of another chat.  
 ```
 +------------+ +------------+
+| Chat 1     | | Chat 2     |
 |+----------+| |+----------+|
 || Puppet A +<--+ User   A ||
 |+----------+| |+----------+|
