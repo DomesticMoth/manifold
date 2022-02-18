@@ -147,3 +147,14 @@ And in the end, the configuration of many individual bridges can be inconvenient
 **Manifold** is in many ways similar to several matrix bridges combined into a single whole. However, unlike the ecosystem of bridges in matrix, **Manifold** exists by itself and does not require raising your own chat server or using someone else's for its work.  
 In addition, **Manifold** provides the integration of chats on the principle of p2p, instead of connecting them through the main chat as in matrix.  
 Also, **Manifold** has access to all metadata of relayed messages, which allows them to be displayed more correctly in connected chats.  
+
+# Architecture
+The main structural element of the Manifold is the "unit". Each unit is a separate entity that interacts with messages passing through the Manifold.  
+A unit can be, for example, a connection to a chat on an external platform, a chat bot, or a message logger.  
+All units inside a running instance of Manifold are connected to each other according to the p2p principle.  
+Each unit can publish events (for example, a chat message event) and receives events from other units.  
+  
+To mark entities transmitted in events (users, messages, chats, etc.) there is a global system of uint64 identifiers.  
+For new entities, a random id is generated using a high-quality RNG and stored. Due to the number of possible variations of the uint64 number, the probability of a collision is extremely small.  
+For individual users, IDs can be set explicitly in the configuration.  
+Manifold provides a simple ID-based event filtering system for implementing ban lists, etc.  
