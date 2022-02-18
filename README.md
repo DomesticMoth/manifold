@@ -170,4 +170,19 @@ Manifold configuration file is described in toml format and is located along the
 The following global parameters can be specified in the configuration file:  
   
 **LogLevel** - Optional string parameter that defines the logging level. Acceptable values (in any case): trace, debug, info, warn, error, fatal, panic. The default value is "Info".  
-**Db** - Optional string parameter defining the path to the sqlite database. If the database does not exist, it will be created. The default value is "/etc/manifold/manifold.db".
+**Db** - Optional string parameter defining the path to the sqlite database. If the database does not exist, it will be created. The default value is "/etc/manifold/manifold.db".  
+**BlockList** - An optional array of numeric IDs globally blocked in the entire instance of the Manifold. Events containing them will be discarded. Empty by default.  
+## Units
+In addition to global parameters, the configuration contains an array of units named "Unit".  
+For each unit, a string field "Name" must be specified that is unique within the config (it is used for log entries, database work, etc.).  
+Also, for each unit, you can specify unique lists of blocked identifiers for outgoing (from this unit to the rest) and incoming (from the rest to this unit) events.  
+```
+[[ Unit ]]
+    Name = "Unit 1"
+
+[[ Unit ]]
+    Name = "Unit 2"
+    BlockListInternal = [0, 1, 2]
+    BlockListExternal = [3, 4, 5]
+```
+In addition, the unit configuration must contain one nested configuration of a specific unit type:
