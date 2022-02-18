@@ -158,3 +158,7 @@ To mark entities transmitted in events (users, messages, chats, etc.) there is a
 For new entities, a random id is generated using a high-quality RNG and stored. Due to the number of possible variations of the uint64 number, the probability of a collision is extremely small.  
 For individual users, IDs can be set explicitly in the configuration.  
 Manifold provides a simple ID-based event filtering system for implementing ban lists, etc.  
+
+# Usage
+The program accepts a single optional command line argument pointing to the path to the configuration file.  
+If the path is not explicitly passed, the program looks for the config in "/etc/manifold/config.toml".  
