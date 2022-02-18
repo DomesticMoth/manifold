@@ -162,3 +162,12 @@ Manifold provides a simple ID-based event filtering system for implementing ban 
 # Usage
 The program accepts a single optional command line argument pointing to the path to the configuration file.  
 If the path is not explicitly passed, the program looks for the config in "/etc/manifold/config.toml".  
+
+# Configuration
+Manifold configuration file is described in toml format and is located along the path "/etc/manifest/config.toml" or along an arbitrary path passed through command line arguments.  
+
+## Global Parameters
+The following global parameters can be specified in the configuration file:  
+  
+**LogLevel** - Optional string parameter that defines the logging level. Acceptable values (in any case): trace, debug, info, warn, error, fatal, panic. The default value is "Info".  
+**Db** - Optional string parameter defining the path to the sqlite database. If the database does not exist, it will be created. The default value is "/etc/manifold/manifold.db".
