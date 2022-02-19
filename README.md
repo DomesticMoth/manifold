@@ -194,3 +194,12 @@ The configuration of units does not contain parameters.
     Name = "Logger"
     [ Unit.Log ]
 ```
+
+### Ping unit
+This unit responds to any message with the text "ping" or "pong" with the opposite message.  
+The configuration of units does not contain parameters.  
+```
+[[ Unit ]]
+    Name = "Ping"
+    [ Unit.Ping ]
+```
