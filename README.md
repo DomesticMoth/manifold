@@ -186,3 +186,11 @@ Also, for each unit, you can specify unique lists of blocked identifiers for out
     BlockListExternal = [3, 4, 5]
 ```
 In addition, the unit configuration must contain one nested configuration of a specific unit type:
+### Log unit
+This unit logs all events from all other units to stdout.  
+The configuration of units does not contain parameters.  
+```
+[[ Unit ]]
+    Name = "Logger"
+    [ Unit.Log ]
+```
