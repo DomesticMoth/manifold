@@ -176,7 +176,7 @@ The following global parameters can be specified in the configuration file:
 In addition to global parameters, the configuration contains an array of units named "Unit".  
 For each unit, a string field "Name" must be specified that is unique within the config (it is used for log entries, database work, etc.).  
 Also, for each unit, you can specify unique lists of blocked identifiers for outgoing (from this unit to the rest) and incoming (from the rest to this unit) events.  
-```
+``` toml
 [[ Unit ]]
     Name = "Unit 1"
 
@@ -189,7 +189,7 @@ In addition, the unit configuration must contain one nested configuration of a s
 ### Log unit
 This unit logs all events from all other units to stdout.  
 The configuration of units does not contain parameters.  
-```
+``` toml
 [[ Unit ]]
     Name = "Logger"
     [ Unit.Log ]
@@ -198,8 +198,79 @@ The configuration of units does not contain parameters.
 ### Ping unit
 This unit responds to any message with the text "ping" or "pong" with the opposite message.  
 The configuration of units does not contain parameters.  
-```
+``` toml
 [[ Unit ]]
     Name = "Ping"
     [ Unit.Ping ]
+```
+
+### Vk unit
+This unit connects the [Vk](https://vk.com) chat to the Manifold.  
+In order to use this unit, you must have a Vk bot added to the chat you are interested in with access to all messages.  
+You can also grant admin rights to this bot if you want to manage the chat via Manifold.  
+You can read more about Vk chatbots here: [getting-started](https://dev.vk.com/api/bots/getting-started), [bots_docs](https://vk.com/dev/bots_docs).  
+There are two mandatory parameters in the configuration of this unit:  
+**Token** - Bot token.  
+**PeerId** - Chat ID. Note that these identifiers are unique for each bot.  
+``` toml
+[[ Unit ]]
+    Name = "Vk"
+    [ Unit.Vk ]
+        Token = "<your token here>"
+        PeerId = 0 # your chat id here
+```
+You can also specify a mapping table between Vk user IDs and local IDs used for incoming messages.  
+``` toml
+[[ Unit ]]
+    Name = "Vk"
+    [ Unit.Vk ]
+        Token = "<your token here>"
+        PeerId = 0 # your chat id here
+        UsersInc = [{Vk=0, Local=0},
+                    {Vk=1, Local=1},
+                    {Vk=2, Local=2}]
+```
+In order to configure individual puppet bots for specific users, you will also need the following optional parameters:  
+**Puppet** - This is an array, each element of which is a configuration of the puppet bot.  
+``` toml
+[[ Unit ]]
+    Name = "Vk"
+    [ Unit.Vk ]
+        Token = "<your token here>"
+        PeerId = 0 # your chat id here
+        UsersInc = [{Vk=0, Local=0},
+                    {Vk=1, Local=1},
+                    {Vk=2, Local=2}]
+        [[ Unit.Vk.Puppet ]] # Puppet 0
+            Token = "<your token here>"
+            PeerId = 0 # your chat id here
+        [[ Unit.Vk.Puppet ]] # Puppet 1
+            Token = "<your token here>"
+            PeerId = 0 # your chat id here
+        [[ Unit.Vk.Puppet ]] # Puppet 2
+            Token = "<your token here>"
+            PeerId = 0 # your chat id here
+```
+Then you have to specify the mapping of local user IDs to these puppets using the **UsersOutg** parameter.  
+``` toml
+[[ Unit ]]
+    Name = "Vk"
+    [ Unit.Vk ]
+        Token = "<your token here>"
+        PeerId = 0 # your chat id here
+        UsersInc = [{Vk=0, Local=0},
+                    {Vk=1, Local=1},
+                    {Vk=2, Local=2}]
+        UsersOutg = [{Local=0, Puppet=0},
+                     {Local=1, Puppet=1},
+                     {Local=2, Puppet=2}]
+        [[ Unit.Vk.Puppet ]] # Puppet 0
+            Token = "<your token here>"
+            PeerId = 0 # your chat id here
+        [[ Unit.Vk.Puppet ]] # Puppet 1
+            Token = "<your token here>"
+            PeerId = 0 # your chat id here
+        [[ Unit.Vk.Puppet ]] # Puppet 2
+            Token = "<your token here>"
+            PeerId = 0 # your chat id here
 ```
