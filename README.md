@@ -205,7 +205,7 @@ The configuration of units does not contain parameters.
 ```
 
 ### Vk unit
-This unit connects the [Vk](https://vk.com) chat to the Manifold.  
+This unit connects [Vk](https://vk.com) chat to the Manifold.  
 In order to use this unit, you must have a Vk bot added to the chat you are interested in with access to all messages.  
 You can also grant admin rights to this bot if you want to manage the chat via Manifold.  
 You can read more about Vk chatbots here: [getting-started](https://dev.vk.com/api/bots/getting-started), [bots_docs](https://vk.com/dev/bots_docs).  
@@ -273,4 +273,69 @@ Then you have to specify the mapping of local user IDs to these puppets using th
         [[ Unit.Vk.Puppet ]] # Puppet 2
             Token = "<your token here>"
             PeerId = 0 # your chat id here
+```
+
+### Tg unit
+This unit connects Telegram chat to the Manifold.  
+In order to use this unit, you must have a telegram bot added to the chat you are interested in with access to all messages.  
+You can also grant admin rights to this bot if you want to manage the chat via Manifold.  
+You can read more about telegram chatbots [here](https://core.telegram.org/bots).  
+There are two mandatory parameters in the configuration of this unit:  
+**Token** - Bot token.  
+**ChatId** - Chat ID.  
+``` toml
+[[ Unit ]]
+    Name = "Telegram"
+    [ Unit.Tg ]
+        Token = "<your token here>"
+        ChatId = 0 # your chat id here
+```
+You can also specify a mapping table between Vk user IDs and local IDs used for incoming messages.  
+``` toml
+[[ Unit ]]
+    Name = "Telegram"
+    [ Unit.Tg ]
+        Token = "<your token here>"
+        ChatId = 0 # your chat id here
+        UsersInc = [{Vk=0, Local=0},
+                    {Vk=1, Local=1},
+                    {Vk=2, Local=2}]
+```
+In order to configure individual puppet bots for specific users, you will also need the following optional parameters:  
+**Puppet** - This is an array, each element of which is a configuration of the puppet bot.  
+``` toml
+[[ Unit ]]
+    Name = "Telegram"
+    [ Unit.Tg ]
+        Token = "<your token here>"
+        ChatId = 0 # your chat id here
+        UsersInc = [{Vk=0, Local=0},
+                    {Vk=1, Local=1},
+                    {Vk=2, Local=2}]
+        [[ Unit.Tg.Puppet ]] # Puppet 0
+            Token = "<your token here>"
+        [[ Unit.Tg.Puppet ]] # Puppet 1
+            Token = "<your token here>"
+        [[ Unit.Tg.Puppet ]] # Puppet 2
+            Token = "<your token here>"
+```
+Then you have to specify the mapping of local user IDs to these puppets using the **UsersOutg** parameter.  
+``` toml
+[[ Unit ]]
+    Name = "Telegram"
+    [ Unit.Tg ]
+        Token = "<your token here>"
+        ChatId = 0 # your chat id here
+        UsersInc = [{Vk=0, Local=0},
+                    {Vk=1, Local=1},
+                    {Vk=2, Local=2}]
+        UsersOutg = [{Local=0, Puppet=0},
+                     {Local=1, Puppet=1},
+                     {Local=2, Puppet=2}]
+        [[ Unit.Tg.Puppet ]] # Puppet 0
+            Token = "<your token here>"
+        [[ Unit.Tg.Puppet ]] # Puppet 1
+            Token = "<your token here>"
+        [[ Unit.Tg.Puppet ]] # Puppet 2
+            Token = "<your token here>"
 ```
